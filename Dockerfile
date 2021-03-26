@@ -4,3 +4,4 @@ RUN echo http://mirror.yandex.ru/mirrors/alpine/edge/main > /etc/apk/repositorie
 RUN apk add --update jq curl rsync bc gzip libacl libcrypto1.1 lz4-libs musl py3-pyzmq python3 borgbackup openssh-client && \
     apk upgrade musl && \
     rm -rf /var/cache/apk/*
+COPY backup.sh /
