@@ -1,0 +1,97 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: pg-backup-example
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capaexample:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/srv/pg-backup/example"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pg-backup-example-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: pg-cron-example-backup
+  namespace: utils
+  labels:
+    cronjob: example-backup
+spec:
+  schedule: "00 03 * * *"
+  jobTemplate:
+    metadata:
+      labels:
+        cronjob: example-backup
+    spec:
+      template:
+        metadata:
+          labels:
+            cronjob: example-backup
+        spec:
+          containers:
+          - name: pg-cron-example-backup
+            image: image:tag
+            imagePullPolicy: IfNotPresent
+            args:
+            - /bin/sh
+            - -c
+            - /backup.sh
+            env:
+            - name: PATRONI_CLUSTER
+              value: example-prod-patroni
+            - name: PGDATABASE
+              value: example_prod
+            - name: PGPASSWORD
+              value: *****************
+            - name: PGUSER
+              value: backadm
+            - name: PG_DUMP_OPTIONS
+              value: -T exclude_tables_*
+            - name: BACKUP_STORE_TIME
+              value: '3'
+            - name: BORG_RSH
+              value: ssh -i /opt/backup/.ssh/sbox02.infra -o 'StrictHostKeyChecking=no' -o 'UserKnownHostsFile=/dev/null'
+            - name: BORG_PASSPHRASE
+              value: ********************
+            - name: BACKUP_TO
+              value: borg
+            - name: BORG_ARCHIVE
+              value: example
+            - name: TELEGRAM_CHAT_ID
+              value: "************"
+            - name: TELEGRAM_BOT_TOKEN
+              value: "*****************************"
+            volumeMounts:
+             - mountPath: /mnt/backup
+               name: pg-backup-example
+             - mountPath: /opt/backup/.ssh
+               name: secret-storage-box-user
+          restartPolicy: OnFailure 
+          imagePullSecrets:
+           - name: registry-rbwtech-net
+          nodeSelector:
+            node-role/backup: crons
+          volumes:
+           - name: pg-backup-example
+             persistentVolumeClaim:
+               claimName: pg-backup-example-claim
+           - name: secret-storage-box-user
+             secret:
+               defaultMode: 0600
+               secretName: secret-storage-box-user
